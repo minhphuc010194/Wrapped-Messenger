@@ -1,4 +1,5 @@
 # Facebook Messenger Desktop Wrapper
+<img width="1392" height="1018" alt="image" src="https://github.com/user-attachments/assets/5ca5f1c1-a0a3-4b27-98a7-b8725ca02cd6" />
 
 Native macOS app wrapper for Facebook Messenger built with Electron.
 
