@@ -1,5 +1,6 @@
 # Facebook Messenger Desktop Wrapper
 
+<img width="1335" height="870" alt="image" src="https://github.com/user-attachments/assets/91022f2c-8536-482d-830f-2bc531509f0b" />
 Native macOS app wrapper for Facebook Messenger built with Electron.
 
 ## Features
@@ -17,11 +18,13 @@ Native macOS app wrapper for Facebook Messenger built with Electron.
 ## Requirements
 
 **For running the app:**
+
 - macOS (Apple Silicon M1/M2/M3) or Windows 10/11 (x64)
 - Node.js (v16 or higher)
 - pnpm or npm
 
 **For building:**
+
 - **macOS build:** Must run on macOS
 - **Windows build:** Must run on Windows (or use CI/CD like GitHub Actions)
 
@@ -78,6 +81,7 @@ After building, you will find:
 - **Portable `.exe`:** `dist/Messenger 1.0.0.exe` - Portable version (no installation needed)
 
 **Requirements for building Windows version:**
+
 - Must be built on Windows machine (or use CI/CD)
 - Windows 10/11 (x64)
 
@@ -96,6 +100,7 @@ pnpm run dist:all
 **macOS:**
 
 1. **Using `.app` file:**
+
    - Open `dist/mac-arm64/Messenger.app`
    - Or drag `Messenger.app` to Applications folder
 
@@ -107,6 +112,7 @@ pnpm run dist:all
 **Windows:**
 
 1. **Using installer (`.exe`):**
+
    - Double-click `Messenger Setup 1.0.0.exe`
    - Follow the installation wizard
    - Choose installation directory if needed
@@ -149,10 +155,12 @@ rm -rf node_modules && npm install
 ### Build fails
 
 **macOS:**
+
 - Ensure you're running on macOS
 - Check electron-builder is installed: `pnpm list electron-builder`
 
 **Windows:**
+
 - Ensure you're running on Windows (or using CI/CD)
 - Check electron-builder is installed: `pnpm list electron-builder`
 - Ensure `build/icon.ico` file exists (required for Windows build)
@@ -190,6 +198,7 @@ The script will automatically download the Messenger logo and create the `build/
 For Windows builds, you need a `.ico` file. You can:
 
 1. **Convert from existing image:**
+
    - Use online tools like [ConvertICO](https://convertio.co/png-ico/) or [ICO Convert](https://icoconvert.com/)
    - Upload a PNG image (256x256 or 512x512 recommended)
    - Download the `.ico` file and save it as `build/icon.ico`
