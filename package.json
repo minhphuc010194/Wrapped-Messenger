@@ -1,17 +1,24 @@
 {
   "name": "facebook-messenger-clone",
   "version": "1.0.0",
-  "description": "A native macOS wrapper for Facebook Messenger",
+  "description": "A native desktop wrapper for Facebook Messenger",
   "main": "main.js",
   "scripts": {
     "dev": "electron .",
     "build": "electron-builder --mac --arm64",
-    "dist": "electron-builder --mac --arm64 --publish never"
+    "build:win": "electron-builder --win --x64",
+    "build:win32": "electron-builder --win --ia32",
+    "build:all": "electron-builder --mac --win",
+    "dist": "electron-builder --mac --arm64 --publish never",
+    "dist:win": "electron-builder --win --x64 --publish never",
+    "dist:all": "electron-builder --mac --win --publish never"
   },
   "keywords": [
     "electron",
     "messenger",
-    "macos"
+    "desktop",
+    "macos",
+    "windows"
   ],
   "author": "",
   "license": "MIT",
@@ -53,6 +60,31 @@
         "NSMicrophoneUsageDescription": "Messenger needs access to your microphone to make voice and video calls.",
         "NSCameraUsageDescription": "Messenger needs access to your camera to make video calls."
       }
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "publisherName": "Messenger Wrapper",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "files": [
       "main.js",

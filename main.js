@@ -95,18 +95,12 @@ function createWindow() {
 
   const windowOptions = {
     frame: false, // Remove default OS window frame
-    titleBarStyle: "hidden",
     width: windowState?.width || 1200,
     height: windowState?.height || 800,
     x: windowState?.x,
     y: windowState?.y,
     minWidth: 800,
     minHeight: 600,
-    titleBarOverlay: {
-      color: "transparent",
-      symbolColor: "#000000",
-      height: 30,
-    },
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
@@ -114,6 +108,16 @@ function createWindow() {
       partition: "persist:messenger",
     },
   };
+
+  // macOS-specific options
+  if (process.platform === "darwin") {
+    windowOptions.titleBarStyle = "hidden";
+    windowOptions.titleBarOverlay = {
+      color: "transparent",
+      symbolColor: "#000000",
+      height: 30,
+    };
+  }
 
   mainWindow = new BrowserWindow(windowOptions);
 

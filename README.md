@@ -16,9 +16,14 @@ Native macOS app wrapper for Facebook Messenger built with Electron.
 
 ## Requirements
 
-- macOS (Apple Silicon M1/M2/M3)
+**For running the app:**
+- macOS (Apple Silicon M1/M2/M3) or Windows 10/11 (x64)
 - Node.js (v16 or higher)
 - pnpm or npm
+
+**For building:**
+- **macOS build:** Must run on macOS
+- **Windows build:** Must run on Windows (or use CI/CD like GitHub Actions)
 
 ## Installation
 
@@ -46,7 +51,9 @@ The app will open and load Messenger. You can open DevTools via `View > Toggle D
 
 ## Build Production
 
-To build `.app` and `.dmg` files for distribution:
+### Build for macOS
+
+To build `.app` and `.dmg` files for macOS:
 
 ```bash
 pnpm run dist
@@ -57,10 +64,38 @@ After building, you will find:
 - **`.app` file:** `dist/mac-arm64/Messenger.app` - Drag to Applications folder to use
 - **`.dmg` file:** `dist/Messenger-1.0.0-arm64.dmg` - Installation file
 
+### Build for Windows
+
+To build Windows installer and portable version:
+
+```bash
+pnpm run dist:win
+```
+
+After building, you will find:
+
+- **`.exe` installer:** `dist/Messenger Setup 1.0.0.exe` - Windows installer (NSIS)
+- **Portable `.exe`:** `dist/Messenger 1.0.0.exe` - Portable version (no installation needed)
+
+**Requirements for building Windows version:**
+- Must be built on Windows machine (or use CI/CD)
+- Windows 10/11 (x64)
+
+### Build for all platforms
+
+To build for both macOS and Windows:
+
+```bash
+pnpm run dist:all
+```
+
+> **Note:** Building for Windows requires running on a Windows machine. You cannot build Windows executables on macOS.
+
 ### Using the built files:
 
-1. **Using `.app` file:**
+**macOS:**
 
+1. **Using `.app` file:**
    - Open `dist/mac-arm64/Messenger.app`
    - Or drag `Messenger.app` to Applications folder
 
@@ -69,7 +104,20 @@ After building, you will find:
    - Drag `Messenger.app` to Applications folder
    - Eject disk image after installation
 
-> **Note:** The first time you open the app, macOS may display a warning because the app is not code signed. Go to System Settings > Privacy & Security and allow the app to run.
+**Windows:**
+
+1. **Using installer (`.exe`):**
+   - Double-click `Messenger Setup 1.0.0.exe`
+   - Follow the installation wizard
+   - Choose installation directory if needed
+   - Desktop and Start Menu shortcuts will be created
+
+2. **Using portable version:**
+   - Run `Messenger 1.0.0.exe` directly
+   - No installation required
+   - Can be run from USB drive or any location
+
+> **Note:** The first time you open the app, macOS may display a warning because the app is not code signed. Go to System Settings > Privacy & Security and allow the app to run. Windows may also show a SmartScreen warning - click "More info" and "Run anyway" if you trust the app.
 
 ## Troubleshooting
 
@@ -100,8 +148,14 @@ rm -rf node_modules && npm install
 
 ### Build fails
 
+**macOS:**
 - Ensure you're running on macOS
 - Check electron-builder is installed: `pnpm list electron-builder`
+
+**Windows:**
+- Ensure you're running on Windows (or using CI/CD)
+- Check electron-builder is installed: `pnpm list electron-builder`
+- Ensure `build/icon.ico` file exists (required for Windows build)
 
 ## Project Structure
 
@@ -112,7 +166,8 @@ facebook_messenger_clone/
 ├── preload.js            # Preload script
 ├── styles.css            # Custom CSS for window styling
 ├── build/                # Build configuration
-│   ├── icon.icns         # Messenger icon (auto-generated)
+│   ├── icon.icns         # macOS icon (auto-generated)
+│   ├── icon.ico          # Windows icon (required for Windows build)
 │   └── entitlements.mac.plist
 ├── build-icon.sh         # Script to create icon
 └── README.md
@@ -120,13 +175,31 @@ facebook_messenger_clone/
 
 ### Creating/Updating Icon
 
-If you want to change the app icon:
+**macOS:**
+
+If you want to change the macOS app icon:
 
 ```bash
 ./build-icon.sh
 ```
 
 The script will automatically download the Messenger logo and create the `build/icon.icns` file for macOS.
+
+**Windows:**
+
+For Windows builds, you need a `.ico` file. You can:
+
+1. **Convert from existing image:**
+   - Use online tools like [ConvertICO](https://convertio.co/png-ico/) or [ICO Convert](https://icoconvert.com/)
+   - Upload a PNG image (256x256 or 512x512 recommended)
+   - Download the `.ico` file and save it as `build/icon.ico`
+
+2. **Create manually:**
+   - Use tools like [IcoFX](https://icofx.ro/) or [GIMP](https://www.gimp.org/)
+   - Create an icon with multiple sizes (16x16, 32x32, 48x48, 256x256)
+   - Save as `build/icon.ico`
+
+> **Note:** The Windows build will fail if `build/icon.ico` is missing. Make sure to create this file before building for Windows.
 
 ## Customization
 

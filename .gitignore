@@ -13,6 +13,8 @@ build/*.png
 build/*.jpg
 build/*.jpeg
 build/*.svg
+build/*.psd
+!build/icon.ico
 !build/entitlements.mac.plist
 
 # macOS
