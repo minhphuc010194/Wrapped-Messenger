@@ -1,0 +1,128 @@
+/* =================================================================
+   1. RESET & BASIC CONFIGURATION
+   ================================================================= */
+/* Hide scrollbar but still allow scrolling */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Window native does not scroll - only inner content can scroll */
+html,
+body {
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding-top: 20px !important;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  /* Default reset: Nothing is draggable unless specified */
+  -webkit-app-region: no-drag;
+  /* Prevent window scroll but allow content scrolling */
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* Ensure Messenger root container can scroll content */
+#mount_0_0,
+#appMountPoint,
+[role="application"],
+body > div:first-child {
+  height: 100vh !important;
+  width: 100vw !important;
+  overflow: hidden !important;
+  position: relative;
+  /* Padding for all inner content */
+  /* padding-top: 10px !important; */
+  box-sizing: border-box;
+}
+
+/* Allow copying message text */
+[role="main"],
+[role="textbox"],
+.notranslate {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Main Chat container */
+div[role="main"] {
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Allow scrolling for content containers inside Messenger */
+/* Conversation list, message list, etc. */
+/* Avoid applying to header (first div) */
+div[role="log"],
+div[role="list"],
+[data-scrollable="true"],
+div[style*="overflow-y"],
+div[style*="overflow: auto"],
+div[style*="overflow: scroll"] {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Message container - usually the 2nd or 3rd element in div[role="main"] */
+div[role="main"] > div:nth-child(n + 2) {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure elements can scroll with mouse/trackpad */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Chat Header (Contains Avatar, Name, Call buttons) */
+/* Usually the first child element of div[role="main"] */
+div[role="main"] > div:first-child {
+  -webkit-app-region: drag !important;
+  /* Header not affected by parent container padding */
+  margin: -8px -8px 0 -8px;
+  padding: 0 8px;
+}
+
+input, 
+  button, 
+  a, 
+  [role="button"], 
+  [role="link"],
+  [role="combobox"], /* Search box */
+  [role="textbox"],
+  div[aria-label], /* Icons with labels like Call, Video */
+  svg, 
+  label {
+  -webkit-app-region: no-drag !important;
+  cursor: default; /* Or pointer depending on context */
+}
+
+/* Specific fix for Search box (sometimes it's a label wrapping input) */
+label[aria-label*="Search"] {
+  -webkit-app-region: no-drag !important;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: rgba(24, 99, 156, 0.8);
+  /* opacity: 0.8; */
+  width: 100%; /* Traffic lights area width */
+  height: 30px;
+  z-index: 99999; /* On top */
+  -webkit-app-region: drag;
+  pointer-events: none; /* Allow clicks to pass through to OS traffic lights */
+}

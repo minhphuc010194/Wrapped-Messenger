@@ -1,0 +1,64 @@
+{
+  "name": "facebook-messenger-clone",
+  "version": "1.0.0",
+  "description": "A native macOS wrapper for Facebook Messenger",
+  "main": "main.js",
+  "scripts": {
+    "dev": "electron .",
+    "build": "electron-builder --mac --arm64",
+    "dist": "electron-builder --mac --arm64 --publish never"
+  },
+  "keywords": [
+    "electron",
+    "messenger",
+    "macos"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^25.1.8"
+  },
+  "pnpm": {
+    "allowedBuildScripts": [
+      "electron"
+    ]
+  },
+  "build": {
+    "appId": "com.messenger.wrapper",
+    "productName": "Facebook Messenger",
+    "mac": {
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.social-networking",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Messenger needs access to your microphone to make voice and video calls.",
+        "NSCameraUsageDescription": "Messenger needs access to your camera to make video calls."
+      }
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "styles.css",
+      "package.json"
+    ]
+  }
+}
