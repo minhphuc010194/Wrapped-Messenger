@@ -13,7 +13,6 @@ Native macOS app wrapper for Facebook Messenger built with Electron.
 - ✅ Frameless window with custom title bar
 - ✅ Native macOS traffic lights integration
 - ✅ Customizable padding and scroll behavior
-- ✅ Drag-to-move window from header area
 
 ## Requirements
 
