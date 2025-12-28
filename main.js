@@ -1,6 +1,16 @@
-const { app, BrowserWindow, Menu, session, ipcMain } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  session,
+  ipcMain,
+  desktopCapturer,
+  dialog,
+  systemPreferences,
+} = require("electron");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 
 // Suppress harmless macOS system warnings
 // These warnings are printed to stderr by Electron itself and are harmless
@@ -26,6 +36,220 @@ const WINDOW_STATE_FILE = path.join(
   app.getPath("userData"),
   "window-state.json"
 );
+
+const TRUSTED_HOST_SUFFIXES = ["messenger.com", "facebook.com"];
+const DISPLAY_MEDIA_PICKER_PRELOAD = path.join(
+  __dirname,
+  "display-media-picker-preload.js"
+);
+const DISPLAY_MEDIA_PICKER_HTML = path.join(
+  __dirname,
+  "display-media-picker.html"
+);
+
+function tryGetHostname(urlOrOrigin) {
+  if (typeof urlOrOrigin !== "string" || urlOrOrigin.trim().length === 0) {
+    return null;
+  }
+
+  try {
+    return new URL(urlOrOrigin).hostname;
+  } catch {
+    return null;
+  }
+}
+
+function isTrustedOrigin(urlOrOrigin) {
+  const hostname = tryGetHostname(urlOrOrigin);
+  if (!hostname) return false;
+
+  return TRUSTED_HOST_SUFFIXES.some(
+    (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`)
+  );
+}
+
+function isAllowedPermission(permission) {
+  return (
+    permission === "media" ||
+    permission === "microphone" ||
+    permission === "camera" ||
+    permission === "display-capture"
+  );
+}
+
+function buildContextMenuTemplate(params) {
+  const editFlags = params?.editFlags || {};
+
+  const hasSelectionText =
+    typeof params?.selectionText === "string" && params.selectionText.length > 0;
+
+  const template = [];
+
+  if (params?.isEditable) {
+    template.push(
+      { role: "undo", enabled: Boolean(editFlags.canUndo) },
+      { role: "redo", enabled: Boolean(editFlags.canRedo) },
+      { type: "separator" },
+      { role: "cut", enabled: Boolean(editFlags.canCut) },
+      { role: "copy", enabled: Boolean(editFlags.canCopy) },
+      { role: "paste", enabled: Boolean(editFlags.canPaste) },
+      { type: "separator" },
+      { role: "selectAll", enabled: Boolean(editFlags.canSelectAll) }
+    );
+    return template;
+  }
+
+  template.push(
+    { role: "copy", enabled: Boolean(editFlags.canCopy) || hasSelectionText },
+    { type: "separator" },
+    { role: "selectAll", enabled: Boolean(editFlags.canSelectAll) }
+  );
+
+  return template;
+}
+
+function installContextMenuForWebContents(webContents) {
+  webContents.on("context-menu", (event, params) => {
+    event.preventDefault();
+
+    const menuTemplate = buildContextMenuTemplate(params);
+    const menu = Menu.buildFromTemplate(menuTemplate);
+    const targetWindow = BrowserWindow.fromWebContents(webContents);
+
+    menu.popup({
+      window: targetWindow || undefined,
+    });
+  });
+}
+
+function createRandomToken() {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return crypto.randomBytes(16).toString("hex");
+}
+
+function serializeDesktopSource(source) {
+  const thumbnailDataUrl =
+    typeof source?.thumbnail?.toDataURL === "function"
+      ? source.thumbnail.toDataURL()
+      : null;
+  const appIconDataUrl =
+    typeof source?.appIcon?.toDataURL === "function"
+      ? source.appIcon.toDataURL()
+      : null;
+
+  return {
+    id: source.id,
+    name: source.name,
+    thumbnailDataUrl,
+    appIconDataUrl,
+  };
+}
+
+function getMacScreenCaptureAccessStatus() {
+  if (process.platform !== "darwin") return null;
+  try {
+    return systemPreferences.getMediaAccessStatus("screen");
+  } catch (error) {
+    console.warn("Unable to read macOS screen capture access status:", error);
+    return null;
+  }
+}
+
+async function askForMacScreenCaptureAccessIfNeeded() {
+  if (process.platform !== "darwin") return true;
+
+  const status = getMacScreenCaptureAccessStatus();
+  if (status === "granted") return true;
+  if (status && status !== "not-determined") return false;
+
+  try {
+    // On some macOS versions, Electron can trigger the OS prompt.
+    // If the OS doesn't support prompting, this will resolve to false.
+    return await systemPreferences.askForMediaAccess("screen");
+  } catch (error) {
+    console.warn("Unable to request macOS screen capture access:", error);
+    return false;
+  }
+}
+
+async function showDisplayMediaPicker({ parentWindow, sources }) {
+  const token = createRandomToken();
+  const serializedSources = sources.map(serializeDesktopSource);
+
+  return await new Promise((resolve) => {
+    let isResolved = false;
+    const resolveOnce = (value) => {
+      if (isResolved) return;
+      isResolved = true;
+      resolve(value);
+    };
+
+    const pickerWindow = new BrowserWindow({
+      width: 860,
+      height: 620,
+      show: false,
+      title: "Share your screen",
+      modal: Boolean(parentWindow),
+      parent: parentWindow || undefined,
+      resizable: true,
+      minimizable: false,
+      maximizable: false,
+      alwaysOnTop: true,
+      webPreferences: {
+        preload: DISPLAY_MEDIA_PICKER_PRELOAD,
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    const cleanupIpcHandlers = () => {
+      ipcMain.removeListener("display-media-picker:select", onSelect);
+      ipcMain.removeListener("display-media-picker:cancel", onCancel);
+    };
+
+    const onSelect = (event, payload) => {
+      if (event.sender !== pickerWindow.webContents) return;
+      if (!payload || payload.token !== token) return;
+      cleanupIpcHandlers();
+      resolveOnce(payload.sourceId || null);
+      pickerWindow.close();
+    };
+
+    const onCancel = (event, payload) => {
+      if (event.sender !== pickerWindow.webContents) return;
+      if (!payload || payload.token !== token) return;
+      cleanupIpcHandlers();
+      resolveOnce(null);
+      pickerWindow.close();
+    };
+
+    ipcMain.on("display-media-picker:select", onSelect);
+    ipcMain.on("display-media-picker:cancel", onCancel);
+
+    pickerWindow.on("closed", () => {
+      cleanupIpcHandlers();
+      resolveOnce(null);
+    });
+
+    pickerWindow
+      .loadFile(DISPLAY_MEDIA_PICKER_HTML)
+      .then(() => {
+        pickerWindow.webContents.send("display-media-picker:init", {
+          token,
+          sources: serializedSources,
+        });
+        pickerWindow.show();
+      })
+      .catch((error) => {
+        console.error("Failed to load display media picker:", error);
+        cleanupIpcHandlers();
+        resolveOnce(null);
+        pickerWindow.close();
+      });
+  });
+}
 
 // Load window state from file
 function loadWindowState() {
@@ -183,19 +407,25 @@ function createWindow() {
 function configurePermissions() {
   const persistentSession = session.fromPartition("persist:messenger");
 
+  persistentSession.setPermissionCheckHandler(
+    (webContents, permission, requestingOrigin) => {
+      if (!isAllowedPermission(permission)) return false;
+      return isTrustedOrigin(requestingOrigin || webContents.getURL());
+    }
+  );
+
   persistentSession.setPermissionRequestHandler(
-    (webContents, permission, callback) => {
-      // Auto-approve microphone and camera permissions for video calls
-      if (
-        permission === "media" ||
-        permission === "microphone" ||
-        permission === "camera"
-      ) {
-        callback(true);
-      } else {
-        // Deny other permissions by default
+    (webContents, permission, callback, details) => {
+      const requestingOrigin =
+        details?.requestingOrigin || details?.requestingUrl || webContents.getURL();
+
+      if (!isAllowedPermission(permission)) {
         callback(false);
+        return;
       }
+
+      // Only auto-approve for trusted Messenger/Facebook origins.
+      callback(isTrustedOrigin(requestingOrigin));
     }
   );
 
@@ -209,6 +439,89 @@ function configurePermissions() {
     }
     return false;
   });
+
+  persistentSession.setDisplayMediaRequestHandler(
+    async (request, callback) => {
+      if (!isTrustedOrigin(request.securityOrigin)) {
+        callback({});
+        return;
+      }
+
+      // Only allow display capture from an explicit user gesture.
+      if (!request.userGesture) {
+        callback({});
+        return;
+      }
+
+      if (!request.videoRequested) {
+        callback({});
+        return;
+      }
+
+      // macOS requires Screen Recording permission (System Settings -> Privacy & Security).
+      // Electron may be able to trigger the system prompt, but users might need to grant it manually.
+      const hasScreenPermission = await askForMacScreenCaptureAccessIfNeeded();
+      if (!hasScreenPermission) {
+        if (process.platform === "darwin") {
+          const status = getMacScreenCaptureAccessStatus();
+          const detail =
+            status && status !== "not-determined"
+              ? `Current status: ${status}`
+              : undefined;
+
+          try {
+            await dialog.showMessageBox(mainWindow || undefined, {
+              type: "warning",
+              title: "Screen Recording permission required",
+              message:
+                "Screen sharing requires Screen Recording permission on macOS.",
+              detail:
+                (detail ? `${detail}\n\n` : "") +
+                "Open System Settings → Privacy & Security → Screen Recording, enable permission for this app, then quit and re-open it.",
+              buttons: ["OK"],
+              defaultId: 0,
+              noLink: true,
+            });
+          } catch (error) {
+            console.warn("Unable to show Screen Recording permission dialog:", error);
+          }
+        }
+
+        callback({});
+        return;
+      }
+
+      try {
+        const sources = await desktopCapturer.getSources({
+          types: ["screen", "window"],
+          thumbnailSize: { width: 320, height: 180 },
+          fetchWindowIcons: true,
+        });
+
+        const selectedSourceId = await showDisplayMediaPicker({
+          parentWindow: mainWindow,
+          sources,
+        });
+
+        const selectedSource = sources.find((s) => s.id === selectedSourceId);
+        if (!selectedSource) {
+          callback({});
+          return;
+        }
+
+        const streams = { video: selectedSource };
+        if (request.audioRequested && process.platform === "win32") {
+          streams.audio = "loopbackWithMute";
+        }
+
+        callback(streams);
+      } catch (error) {
+        console.error("Error while handling display media request:", error);
+        callback({});
+      }
+    },
+    process.platform === "darwin" ? { useSystemPicker: true } : undefined
+  );
 }
 
 // Create application menu
@@ -277,6 +590,10 @@ function createMenu() {
 
 // App event handlers
 app.whenReady().then(() => {
+  app.on("web-contents-created", (_event, contents) => {
+    installContextMenuForWebContents(contents);
+  });
+
   configurePermissions();
   createMenu();
   createWindow();

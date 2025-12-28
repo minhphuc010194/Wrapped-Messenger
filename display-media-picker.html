@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Share your screen</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b0f14;
+        --panel: #111823;
+        --text: #e7eef8;
+        --muted: #9fb1c8;
+        --border: rgba(255, 255, 255, 0.12);
+        --primary: #3b82f6;
+        --danger: #ef4444;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f8fb;
+          --panel: #ffffff;
+          --text: #0b1220;
+          --muted: #4b5563;
+          --border: rgba(0, 0, 0, 0.12);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0.4),
+          rgba(0, 0, 0, 0)
+        );
+        padding: 16px 16px 8px;
+      }
+
+      .titleRow {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      h1 {
+        font-size: 18px;
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      input[type="search"] {
+        width: min(420px, 56vw);
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        outline: none;
+      }
+
+      input[type="search"]:focus {
+        border-color: rgba(59, 130, 246, 0.6);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      }
+
+      button {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: rgba(255, 255, 255, 0.22);
+      }
+
+      #cancelBtn {
+        border-color: rgba(239, 68, 68, 0.5);
+      }
+
+      #cancelBtn:hover {
+        border-color: rgba(239, 68, 68, 0.85);
+      }
+
+      main {
+        padding: 0 16px 18px;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0 0 10px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        border-radius: 14px;
+        padding: 12px;
+        text-align: left;
+      }
+
+      .card:focus-visible {
+        outline: none;
+        border-color: rgba(59, 130, 246, 0.85);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      }
+
+      .thumb {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 10px;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .meta {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        overflow: hidden;
+        flex: 0 0 auto;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .name {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .primaryText {
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.25;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .secondaryText {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.2;
+      }
+
+      .emptyState {
+        display: none;
+        color: var(--muted);
+        text-align: center;
+        padding: 28px 10px;
+        border: 1px dashed var(--border);
+        border-radius: 14px;
+      }
+
+      .emptyState.visible {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="titleRow">
+        <h1>Choose what to share</h1>
+        <div class="actions">
+          <input
+            id="searchInput"
+            type="search"
+            placeholder="Search screens/windows..."
+            autocomplete="off"
+          />
+          <button id="cancelBtn" type="button">Cancel</button>
+        </div>
+      </div>
+      <p class="hint">
+        Tip: If you don't see the right window, try bringing it to the front and
+        retry.
+      </p>
+    </header>
+
+    <main>
+      <div id="grid" class="grid" aria-label="Available sources"></div>
+      <div id="emptyState" class="emptyState">No matching sources.</div>
+    </main>
+
+    <script>
+      const state = {
+        sources: [],
+        filtered: [],
+      };
+
+      const gridEl = document.getElementById("grid");
+      const emptyEl = document.getElementById("emptyState");
+      const searchEl = document.getElementById("searchInput");
+
+      function getSourceKind(sourceId) {
+        if (typeof sourceId !== "string") return "Unknown";
+        if (sourceId.startsWith("screen:")) return "Screen";
+        if (sourceId.startsWith("window:")) return "Window";
+        return "Source";
+      }
+
+      function normalizeText(value) {
+        if (typeof value !== "string") return "";
+        return value.trim().toLowerCase();
+      }
+
+      function clearChildren(el) {
+        while (el.firstChild) el.removeChild(el.firstChild);
+      }
+
+      function renderSources(sources) {
+        clearChildren(gridEl);
+
+        if (!Array.isArray(sources) || sources.length === 0) {
+          emptyEl.classList.add("visible");
+          return;
+        }
+
+        emptyEl.classList.remove("visible");
+
+        for (const source of sources) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "card";
+          button.setAttribute("aria-label", `Share ${source.name}`);
+
+          button.addEventListener("click", () => {
+            window.displayMediaPicker.selectSource(source.id);
+          });
+
+          const thumb = document.createElement("div");
+          thumb.className = "thumb";
+
+          if (source.thumbnailDataUrl) {
+            const img = document.createElement("img");
+            img.alt = source.name;
+            img.src = source.thumbnailDataUrl;
+            thumb.appendChild(img);
+          } else {
+            thumb.textContent = "Preview unavailable";
+          }
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+
+          const icon = document.createElement("div");
+          icon.className = "icon";
+          if (source.appIconDataUrl) {
+            const iconImg = document.createElement("img");
+            iconImg.alt = "";
+            iconImg.src = source.appIconDataUrl;
+            icon.appendChild(iconImg);
+          }
+
+          const name = document.createElement("div");
+          name.className = "name";
+
+          const primary = document.createElement("div");
+          primary.className = "primaryText";
+          primary.textContent = source.name || "Untitled";
+
+          const secondary = document.createElement("div");
+          secondary.className = "secondaryText";
+          secondary.textContent = getSourceKind(source.id);
+
+          name.appendChild(primary);
+          name.appendChild(secondary);
+
+          meta.appendChild(icon);
+          meta.appendChild(name);
+
+          button.appendChild(thumb);
+          button.appendChild(meta);
+
+          gridEl.appendChild(button);
+        }
+      }
+
+      function applyFilter() {
+        const q = normalizeText(searchEl.value);
+        if (!q) {
+          state.filtered = state.sources;
+          renderSources(state.filtered);
+          return;
+        }
+
+        state.filtered = state.sources.filter((s) => {
+          return normalizeText(s.name).includes(q) || normalizeText(s.id).includes(q);
+        });
+
+        renderSources(state.filtered);
+      }
+
+      document.getElementById("cancelBtn").addEventListener("click", () => {
+        window.displayMediaPicker.cancel();
+      });
+
+      searchEl.addEventListener("input", applyFilter);
+
+      window.displayMediaPicker.onInit((payload) => {
+        const sources = Array.isArray(payload?.sources) ? payload.sources : [];
+
+        // Screens first for convenience, then windows.
+        sources.sort((a, b) => {
+          const ak = getSourceKind(a.id);
+          const bk = getSourceKind(b.id);
+          if (ak === bk) return (a.name || "").localeCompare(b.name || "");
+          if (ak === "Screen") return -1;
+          if (bk === "Screen") return 1;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+
+        state.sources = sources;
+        state.filtered = sources;
+        renderSources(state.filtered);
+        searchEl.focus();
+      });
+    </script>
+  </body>
+</html>
+
+

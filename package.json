@@ -89,6 +89,8 @@
     "files": [
       "main.js",
       "preload.js",
+      "display-media-picker.html",
+      "display-media-picker-preload.js",
       "styles.css",
       "package.json"
     ]

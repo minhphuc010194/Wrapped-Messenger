@@ -10,6 +10,7 @@ Native macOS app wrapper for Facebook Messenger built with Electron.
 - ✅ Remember window size and position
 - ✅ Display unread message count on Dock icon
 - ✅ Support video calls (microphone & camera)
+- ✅ Support screen sharing (screen capture)
 - ✅ Frameless window with custom title bar
 - ✅ Native macOS traffic lights integration
 - ✅ Customizable padding and scroll behavior
@@ -164,6 +165,14 @@ rm -rf node_modules && npm install
 - Ensure you're running on Windows (or using CI/CD)
 - Check electron-builder is installed: `pnpm list electron-builder`
 - Ensure `build/icon.ico` file exists (required for Windows build)
+
+### Screen sharing doesn't work (macOS)
+
+macOS requires explicit **Screen Recording** permission for apps that capture your display.
+
+1. Open **System Settings** → **Privacy & Security** → **Screen Recording**
+2. Enable permission for **Facebook Messenger** (or the app name you built)
+3. Quit and re-open the app
 
 ## Project Structure
 
