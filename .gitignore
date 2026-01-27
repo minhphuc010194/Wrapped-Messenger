@@ -99,3 +99,5 @@ coverage/
 *.bak
 *.backup
 
+# Editor
+.agent/

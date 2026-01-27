@@ -1,6 +1,6 @@
 {
   "name": "facebook-messenger-clone",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A native desktop wrapper for Facebook Messenger",
   "main": "main.js",
   "scripts": {
@@ -89,6 +89,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "pip-handler.js",
       "display-media-picker.html",
       "display-media-picker-preload.js",
       "styles.css",

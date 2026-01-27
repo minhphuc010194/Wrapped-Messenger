@@ -32,20 +32,30 @@ if (process.platform === "darwin") {
 
 let mainWindow = null;
 let isQuitting = false;
+
+// Enable autoplay and PiP without user gesture requirement
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+// Disable gesture requirement for media features
+app.commandLine.appendSwitch(
+  "disable-features",
+  "UserActivationRequirementForPictureInPicture",
+);
+
 const WINDOW_STATE_FILE = path.join(
   app.getPath("userData"),
-  "window-state.json"
+  "window-state.json",
 );
 
 const TRUSTED_HOST_SUFFIXES = ["messenger.com", "facebook.com"];
 const DISPLAY_MEDIA_PICKER_PRELOAD = path.join(
   __dirname,
-  "display-media-picker-preload.js"
+  "display-media-picker-preload.js",
 );
 const DISPLAY_MEDIA_PICKER_HTML = path.join(
   __dirname,
-  "display-media-picker.html"
+  "display-media-picker.html",
 );
+const PIP_HANDLER_PATH = path.join(__dirname, "pip-handler.js");
 
 function tryGetHostname(urlOrOrigin) {
   if (typeof urlOrOrigin !== "string" || urlOrOrigin.trim().length === 0) {
@@ -64,7 +74,7 @@ function isTrustedOrigin(urlOrOrigin) {
   if (!hostname) return false;
 
   return TRUSTED_HOST_SUFFIXES.some(
-    (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`)
+    (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
   );
 }
 
@@ -81,7 +91,8 @@ function buildContextMenuTemplate(params) {
   const editFlags = params?.editFlags || {};
 
   const hasSelectionText =
-    typeof params?.selectionText === "string" && params.selectionText.length > 0;
+    typeof params?.selectionText === "string" &&
+    params.selectionText.length > 0;
 
   const template = [];
 
@@ -94,7 +105,7 @@ function buildContextMenuTemplate(params) {
       { role: "copy", enabled: Boolean(editFlags.canCopy) },
       { role: "paste", enabled: Boolean(editFlags.canPaste) },
       { type: "separator" },
-      { role: "selectAll", enabled: Boolean(editFlags.canSelectAll) }
+      { role: "selectAll", enabled: Boolean(editFlags.canSelectAll) },
     );
     return template;
   }
@@ -102,7 +113,7 @@ function buildContextMenuTemplate(params) {
   template.push(
     { role: "copy", enabled: Boolean(editFlags.canCopy) || hasSelectionText },
     { type: "separator" },
-    { role: "selectAll", enabled: Boolean(editFlags.canSelectAll) }
+    { role: "selectAll", enabled: Boolean(editFlags.canSelectAll) },
   );
 
   return template;
@@ -314,6 +325,39 @@ function injectStyles(webContents) {
   }
 }
 
+// Inject PiP handler script for automatic Picture-in-Picture
+function injectPiPHandler(webContents) {
+  try {
+    const pipScript = fs.readFileSync(PIP_HANDLER_PATH, "utf8");
+
+    // First log to verify we reach this point
+    webContents
+      .executeJavaScript("console.log('[PiP Handler] Injection starting...');")
+      .catch(() => {});
+
+    // Execute the script directly (it's already wrapped in IIFE)
+    webContents
+      .executeJavaScript(pipScript)
+      .then(() => {
+        console.log("PiP handler executed successfully");
+        // Verify in renderer
+        webContents
+          .executeJavaScript(
+            "console.log('[PiP Handler] Script executed from main process');",
+          )
+          .catch(() => {});
+      })
+      .catch((err) => {
+        console.error("PiP handler execution error:", err);
+        webContents
+          .executeJavaScript("console.error('[PiP Handler] Execution failed');")
+          .catch(() => {});
+      });
+  } catch (error) {
+    console.error("Error reading PiP handler:", error);
+  }
+}
+
 function createWindow() {
   const windowState = loadWindowState();
 
@@ -362,6 +406,7 @@ function createWindow() {
   mainWindow.webContents.on("dom-ready", () => {
     setTimeout(() => {
       injectStyles(mainWindow.webContents);
+      // Note: PiP handler is now injected via web-contents-created for ALL windows
     }, 1000); // Wait 1 second for Messenger to fully load
   });
 
@@ -407,17 +452,40 @@ function createWindow() {
 function configurePermissions() {
   const persistentSession = session.fromPartition("persist:messenger");
 
+  // Override Permissions-Policy header to allow PiP
+  persistentSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...details.responseHeaders };
+
+    // Remove or modify Permissions-Policy header to allow picture-in-picture
+    const headersToModify = ["permissions-policy", "Permissions-Policy"];
+    for (const header of headersToModify) {
+      if (responseHeaders[header]) {
+        // Remove picture-in-picture restriction from the policy
+        responseHeaders[header] = responseHeaders[header].map((value) => {
+          // Remove picture-in-picture=() or picture-in-picture=self etc.
+          return value
+            .replace(/picture-in-picture\s*=\s*\([^)]*\),?\s*/g, "")
+            .replace(/,\s*$/, ""); // Clean trailing comma
+        });
+      }
+    }
+
+    callback({ responseHeaders });
+  });
+
   persistentSession.setPermissionCheckHandler(
     (webContents, permission, requestingOrigin) => {
       if (!isAllowedPermission(permission)) return false;
       return isTrustedOrigin(requestingOrigin || webContents.getURL());
-    }
+    },
   );
 
   persistentSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
       const requestingOrigin =
-        details?.requestingOrigin || details?.requestingUrl || webContents.getURL();
+        details?.requestingOrigin ||
+        details?.requestingUrl ||
+        webContents.getURL();
 
       if (!isAllowedPermission(permission)) {
         callback(false);
@@ -426,7 +494,7 @@ function configurePermissions() {
 
       // Only auto-approve for trusted Messenger/Facebook origins.
       callback(isTrustedOrigin(requestingOrigin));
-    }
+    },
   );
 
   // Handle media device access
@@ -483,7 +551,10 @@ function configurePermissions() {
               noLink: true,
             });
           } catch (error) {
-            console.warn("Unable to show Screen Recording permission dialog:", error);
+            console.warn(
+              "Unable to show Screen Recording permission dialog:",
+              error,
+            );
           }
         }
 
@@ -520,7 +591,7 @@ function configurePermissions() {
         callback({});
       }
     },
-    process.platform === "darwin" ? { useSystemPicker: true } : undefined
+    process.platform === "darwin" ? { useSystemPicker: true } : undefined,
   );
 }
 
@@ -592,18 +663,43 @@ function createMenu() {
 app.whenReady().then(() => {
   app.on("web-contents-created", (_event, contents) => {
     installContextMenuForWebContents(contents);
+
+    // Inject PiP handler into ALL web contents (including popup call windows)
+    contents.on("dom-ready", () => {
+      const url = contents.getURL();
+      // Only inject for Messenger/Facebook pages
+      if (isTrustedOrigin(url)) {
+        console.log("Injecting PiP handler into:", url);
+        setTimeout(() => {
+          injectPiPHandler(contents);
+        }, 1000);
+      }
+    });
   });
 
   configurePermissions();
   createMenu();
   createWindow();
 
-  // macOS: Re-create window when dock icon is clicked
+  // macOS: Re-create window when dock icon is clicked or restore all windows
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    const allWindows = BrowserWindow.getAllWindows();
+
+    if (allWindows.length === 0) {
       createWindow();
-    } else if (mainWindow) {
-      mainWindow.show();
+    } else {
+      // Restore and show ALL windows (including popup call windows)
+      allWindows.forEach((win) => {
+        if (win.isMinimized()) {
+          win.restore();
+        }
+        win.show();
+      });
+
+      // Focus main window if available
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.focus();
+      }
     }
   });
 });
